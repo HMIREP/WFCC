@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Workflow Control Centre</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --navy:#0f172a; --navy2:#1e293b; --paper:#fffdf7; --card:#fff;
+    --line:#e7e2d6; --ink:#0f172a; --muted:#64748b; --faint:#94a3b8;
+    --orange:#f97316; --teal:#14b8a6; --emerald:#10b981; --amber:#f59e0b;
+    --red:#dc2626;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Inter,system-ui,-apple-system,sans-serif;background:var(--paper);color:var(--ink)}
+  header{background:var(--navy);color:#fff;padding:18px 20px}
+  .wrap{max-width:880px;margin:0 auto}
+  .hrow{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+  .brand{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);font-weight:700}
+  h1{font-size:26px;font-weight:800;line-height:1.05}
+  .sub{font-size:11.5px;color:#94a3b8;margin-top:3px}
+  .btn{display:inline-flex;align-items:center;gap:7px;border:none;border-radius:8px;padding:9px 15px;
+       font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+  .btn-orange{background:var(--orange);color:#fff}
+  .btn-ghost{background:transparent;color:#cbd5e1;border:1px solid #334155;border-radius:99px;
+             padding:4px 12px;font-size:11px;font-weight:600}
+  .btn-ghost.on{background:var(--teal);color:#04211d;border-color:var(--teal)}
+  .counts{font-size:10.5px;color:#94a3b8;margin-top:6px;text-align:right}
+  .strip{background:var(--navy2);color:#cbd5e1;font-size:11.5px}
+  .striprow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 20px}
+  .saved{color:#64748b;font-weight:600}
+  .saved.flash{color:var(--emerald)}
+  main{padding:20px 20px 90px}
+  section.block{margin-bottom:22px}
+  .shead{display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+  .sdot{width:8px;height:8px;border-radius:2px;flex:none}
+  .stitle{flex:1;min-width:0;border:1px solid transparent;background:transparent;font-family:inherit;
+          font-size:14px;font-weight:700;color:var(--ink);padding:3px 6px;border-radius:5px}
+  .stitle:focus{border-color:var(--line);outline:none}
+  .privbadge{display:inline-flex;align-items:center;gap:4px;font-size:9.5px;font-weight:700;letter-spacing:.06em;
+             text-transform:uppercase;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:99px;padding:2px 8px}
+  .icb{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:5px;
+       cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--muted);font-size:13px}
+  .icb.danger{color:var(--red)}
+  .scount{font-size:11px;color:var(--faint)}
+  .card{border:1px solid var(--line);border-radius:5px;padding:10px;margin-bottom:8px;background:#fff}
+  .card.done{background:#f8fafc;opacity:.72}
+  .card .top{display:flex;gap:8px;align-items:flex-start}
+  .chk{margin-top:2px;width:18px;height:18px;flex:none;border-radius:4px;cursor:pointer;
+       border:1.5px solid #cbd5e1;background:#fff;display:inline-flex;align-items:center;justify-content:center;
+       font-size:12px;color:#fff;font-weight:800}
+  .chk.on{background:var(--emerald);border-color:var(--emerald)}
+  label.f{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);font-weight:600;
+          margin-bottom:2px;display:block}
+  .inp,textarea,select{width:100%;border:1px solid var(--line);border-radius:4px;padding:6px 8px;font-size:12.5px;
+       color:var(--ink);background:#fff;font-family:inherit}
+  textarea{resize:vertical;line-height:1.45;min-height:38px}
+  .grid3{display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:8px;margin-top:8px}
+  @media(max-width:640px){.grid3{grid-template-columns:1fr}}
+  .mt8{margin-top:8px}
+  .foot{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+  .mv{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);font-weight:600}
+  .pill{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;padding:4px 8px;
+        border-radius:99px;cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--faint)}
+  .pill.priv{background:#fffbeb;color:#b45309}
+  .spacer{flex:1}
+  .addbtn{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--teal);
+          background:#f0fdfa;border:1px dashed var(--teal);border-radius:6px;padding:7px 12px;cursor:pointer;font-family:inherit}
+  .empty{font-size:12px;color:var(--faint);font-style:italic;padding:4px 0 8px}
+  footer{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);font-size:11.5px;color:var(--faint);line-height:1.6}
+  /* first-run overlay */
+  #firstrun{position:fixed;inset:0;background:rgba(15,23,42,.94);z-index:50;display:flex;align-items:center;justify-content:center;padding:20px}
+  #firstrun .box{background:#fff;border-radius:12px;max-width:460px;padding:30px;text-align:center}
+  #firstrun h2{font-size:19px;margin-bottom:8px}
+  #firstrun p{font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:18px}
+  #firstrun .btn{margin:4px}
+  .btn-navy{background:var(--navy);color:#fff}
+  .btn-line{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  .hidden{display:none!important}
+  input[type=file]{display:none}
+</style>
+</head>
+<body>
+
+<div id="firstrun" class="hidden">
+  <div class="box">
+    <div class="brand" style="margin-bottom:6px">Workflow Control Centre</div>
+    <h2>Painel vazio · Empty board</h2>
+    <p>Este painel guarda os dados <b>só no seu navegador</b> — nada fica público.
+       Importe o seu ficheiro de backup (.json) para carregar o seu quadro,
+       ou comece do zero.<br><br>
+       <i>This board stores data <b>in your browser only</b> — nothing is public.
+       Import your backup (.json) to load your board, or start fresh.</i></p>
+    <button class="btn btn-navy" onclick="document.getElementById('importfile').click()">📂 Importar backup (.json)</button>
+    <button class="btn btn-line" onclick="startFresh()">Começar do zero</button>
+  </div>
+</div>
+
+<header>
+  <div class="wrap hrow">
+    <div>
+      <div class="brand">Workflow Control Centre</div>
+      <h1>Painel de Prioridades</h1>
+      <div class="sub">Privado · dados só neste navegador · o export gera a planilha partilhável</div>
+    </div>
+    <div>
+      <button class="btn btn-orange" onclick="exportXlsx()">⬇ Gerar planilha (.xlsx)</button>
+      <div class="counts" id="counts"></div>
+    </div>
+  </div>
+</header>
+
+<div class="strip">
+  <div class="wrap striprow">
+    <button class="btn-ghost btn" id="previewBtn" onclick="togglePreview()">👁 Pré-visualizar o export</button>
+    <span class="saved" id="savedmsg">salva automaticamente</span>
+    <span class="spacer"></span>
+    <button class="btn-ghost btn" onclick="exportJson()">💾 Backup (.json)</button>
+    <button class="btn-ghost btn" onclick="document.getElementById('importfile').click()">📂 Importar</button>
+    <button class="btn-ghost btn" onclick="addSection()">＋ Seção</button>
+  </div>
+</div>
+<input type="file" id="importfile" accept=".json" onchange="importJson(event)">
+
+<main class="wrap" id="board"></main>
+
+<script>
+const KEY='bvtwfcc_board_v1';
+const PRIORITIES=["🔴 Crítica / Critical","🔴 Alta / High","🟠 Média / Medium",
+  "🟠 Média / Medium — parada / parked","🟢 Baixa / Low","🟢 Concluído / Done"];
+const COLORS=['#dc2626','#f59e0b','#f97316','#7c3aed','#475569','#94a3b8','#2563eb','#10b981','#14b8a6'];
+let board=null, preview=false, saveT=null, flashT=null;
+const uid=()=>Math.random().toString(36).slice(2,9);
+
+function load(){
+  try{const raw=localStorage.getItem(KEY); if(raw){board=JSON.parse(raw); return true;}}catch(e){}
+  return false;
+}
+function persist(){
+  clearTimeout(saveT);
+  saveT=setTimeout(()=>{
+    try{localStorage.setItem(KEY,JSON.stringify(board));}catch(e){}
+    const el=document.getElementById('savedmsg');
+    el.textContent='✓ salvo'; el.classList.add('flash');
+    clearTimeout(flashT);
+    flashT=setTimeout(()=>{el.textContent='salva automaticamente';el.classList.remove('flash');},900);
+  },400);
+}
+function startFresh(){
+  board={sections:[{id:uid(),title:'🔴 TOP — prioridades',color:'#dc2626',private:false,collapsed:false,items:[]}]};
+  persist(); document.getElementById('firstrun').classList.add('hidden'); render();
+}
+
+/* ---------- mutations ---------- */
+function upd(sid,iid,field,val){const s=board.sections.find(x=>x.id===sid);const it=s.items.find(x=>x.id===iid);it[field]=val;persist();refreshCounts();}
+function toggleDone(sid,iid){const s=board.sections.find(x=>x.id===sid);const it=s.items.find(x=>x.id===iid);it.done=!it.done;persist();render();}
+function togglePriv(sid,iid){const s=board.sections.find(x=>x.id===sid);const it=s.items.find(x=>x.id===iid);it.private=!it.private;persist();render();}
+function delItem(sid,iid){const s=board.sections.find(x=>x.id===sid);s.items=s.items.filter(x=>x.id!==iid);persist();render();}
+function moveItem(sid,iid,dir){const s=board.sections.find(x=>x.id===sid);const i=s.items.findIndex(x=>x.id===iid);const j=i+dir;
+  if(j<0||j>=s.items.length)return;[s.items[i],s.items[j]]=[s.items[j],s.items[i]];persist();render();}
+function moveToSection(sid,iid,tid){if(sid===tid)return;const s=board.sections.find(x=>x.id===sid);
+  const it=s.items.find(x=>x.id===iid);s.items=s.items.filter(x=>x.id!==iid);
+  board.sections.find(x=>x.id===tid).items.push(it);persist();render();}
+function addItem(sid){const s=board.sections.find(x=>x.id===sid);
+  s.items.push({id:uid(),item:'',category:'',priority:'',source:'',notes:'',done:false,private:s.private});persist();render();}
+function addSection(){board.sections.push({id:uid(),title:'🆕 Nova seção',color:COLORS[board.sections.length%COLORS.length],
+  private:false,collapsed:false,items:[]});persist();render();}
+function renameSection(sid,val){board.sections.find(x=>x.id===sid).title=val;persist();}
+function toggleSectionPriv(sid){const s=board.sections.find(x=>x.id===sid);s.private=!s.private;persist();render();}
+function toggleCollapse(sid){const s=board.sections.find(x=>x.id===sid);s.collapsed=!s.collapsed;persist();render();}
+function delSection(sid){if(!confirm('Excluir esta seção e todos os seus itens?'))return;
+  board.sections=board.sections.filter(x=>x.id!==sid);persist();render();}
+function togglePreview(){preview=!preview;document.getElementById('previewBtn').classList.toggle('on',preview);
+  document.getElementById('previewBtn').textContent=preview?'👁 Vendo o que é exportado':'👁 Pré-visualizar o export';render();}
+
+/* ---------- render ---------- */
+const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+function refreshCounts(){
+  const exp=board.sections.filter(s=>!s.private).reduce((n,s)=>n+s.items.filter(i=>!i.private).length,0);
+  const priv=board.sections.reduce((n,s)=>n+s.items.filter(i=>i.private||s.private).length,0);
+  document.getElementById('counts').textContent=`${exp} itens exportáveis · ${priv} privados`;
+}
+function render(){
+  refreshCounts();
+  const host=document.getElementById('board');
+  const sections=preview?board.sections.filter(s=>!s.private):board.sections;
+  host.innerHTML=sections.map(s=>{
+    const items=preview?s.items.filter(i=>!i.private):s.items;
+    return `<section class="block">
+      <div class="shead">
+        <span class="sdot" style="background:${s.color}"></span>
+        <input class="stitle" value="${esc(s.title)}" onchange="renameSection('${s.id}',this.value)">
+        ${s.private?'<span class="privbadge">🔒 privado · não exporta</span>':''}
+        <span class="scount">${items.length}</span>
+        <button class="icb" title="${s.private?'Tornar exportável':'Marcar privada'}" onclick="toggleSectionPriv('${s.id}')">${s.private?'🙈':'👁'}</button>
+        <button class="icb" title="${s.collapsed?'Expandir':'Recolher'}" onclick="toggleCollapse('${s.id}')">${s.collapsed?'▾':'▴'}</button>
+        <button class="icb danger" title="Excluir seção" onclick="delSection('${s.id}')">🗑</button>
+      </div>
+      ${s.collapsed?'':items.map(it=>`
+        <div class="card ${it.done?'done':''}" style="border-left:3px solid ${it.private?'#f59e0b':s.color}">
+          <div class="top">
+            <span class="chk ${it.done?'on':''}" onclick="toggleDone('${s.id}','${it.id}')">${it.done?'✓':''}</span>
+            <div style="flex:1;min-width:0">
+              <label class="f">Item</label>
+              <textarea onchange="upd('${s.id}','${it.id}','item',this.value)">${esc(it.item)}</textarea>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <button class="icb" onclick="moveItem('${s.id}','${it.id}',-1)">↑</button>
+              <button class="icb" onclick="moveItem('${s.id}','${it.id}',1)">↓</button>
+            </div>
+          </div>
+          <div class="grid3">
+            <div><label class="f">Categoria</label><input class="inp" value="${esc(it.category)}" onchange="upd('${s.id}','${it.id}','category',this.value)"></div>
+            <div><label class="f">Prioridade</label><input class="inp" list="prios" value="${esc(it.priority)}" onchange="upd('${s.id}','${it.id}','priority',this.value)"></div>
+            <div><label class="f">Origem</label><input class="inp" value="${esc(it.source)}" onchange="upd('${s.id}','${it.id}','source',this.value)"></div>
+          </div>
+          <div class="mt8"><label class="f">Notas</label>
+            <textarea onchange="upd('${s.id}','${it.id}','notes',this.value)">${esc(it.notes)}</textarea></div>
+          <div class="foot">
+            <span class="mv">↪ mover para</span>
+            <select style="width:auto;padding:4px 6px;font-size:11.5px" onchange="moveToSection('${s.id}','${it.id}',this.value)">
+              ${board.sections.map(t=>`<option value="${t.id}" ${t.id===s.id?'selected':''}>${esc(t.title.slice(0,34))}</option>`).join('')}
+            </select>
+            <span class="spacer"></span>
+            <span class="pill ${it.private?'priv':''}" onclick="togglePriv('${s.id}','${it.id}')">${it.private?'🙈 Privado':'👁 Exporta'}</span>
+            <button class="icb danger" onclick="delItem('${s.id}','${it.id}')">🗑</button>
+          </div>
+        </div>`).join('')}
+      ${s.collapsed?'':(items.length===0?'<div class="empty">Vazio.</div>':'')}
+      ${(!preview&&!s.collapsed)?`<button class="addbtn" onclick="addItem('${s.id}')">＋ Adicionar item</button>`:''}
+    </section>`;
+  }).join('')+`<footer>Os dados vivem <b>só neste navegador</b>. Faça <b>Backup (.json)</b> regularmente — é o seu seguro
+    e a forma de levar o quadro para outro aparelho. <b>Gerar planilha</b> cria o .xlsx datado (só itens não-privados)
+    para a pasta partilhada.</footer>`;
+}
+
+/* ---------- export / import ---------- */
+function dstr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function ddmy(){const d=new Date();return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();}
+function exportXlsx(){
+  const rows=[],merges=[];let r=0;
+  const wide=t=>{rows.push([t,'','','','','']);merges.push({s:{r,c:0},e:{r,c:5}});r++;};
+  const blank=()=>{rows.push(['','','','','','']);r++;};
+  wide('BRAZIL VOICE TUTOR — Lista de Prioridades / Priority List');
+  wide('Alessandra vê (somente leitura) · Hussain edita | Alessandra views (read-only) · Hussain edits');
+  wide('Última atualização / Last updated: '+ddmy());
+  wide('Status: 🔴 A fazer / To do   🟡 Em andamento / In progress   🟢 Concluído / Done');
+  blank();
+  board.sections.filter(s=>!s.private).forEach(s=>{
+    const items=s.items.filter(i=>!i.private);
+    wide(s.title);
+    rows.push(['#','Item','Categoria / Category','Prioridade / Priority','Origem / Source','Notas / Notes']);r++;
+    if(items.length===0){rows.push(['','—','','','','']);r++;}
+    else items.forEach((it,i)=>{rows.push([i+1,it.item,it.category,it.priority,it.source,it.notes]);r++;});
+    blank();
+  });
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!merges']=merges;
+  ws['!cols']=[{wch:5},{wch:52},{wch:20},{wch:26},{wch:22},{wch:70}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Prioridades');
+  XLSX.writeFile(wb,'BVT_Lista_Prioridades_'+dstr()+'.xlsx');
+}
+function exportJson(){
+  const blob=new Blob([JSON.stringify(board,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='bvtwfcc-backup-'+dstr()+'.json';
+  a.click();URL.revokeObjectURL(a.href);
+}
+function importJson(ev){
+  const f=ev.target.files[0]; if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{try{
+      const data=JSON.parse(rd.result);
+      if(!data.sections||!Array.isArray(data.sections))throw new Error('formato');
+      board=data;persist();
+      document.getElementById('firstrun').classList.add('hidden');
+      render();
+    }catch(e){alert('Ficheiro inválido — precisa ser um backup .json deste painel.');}};
+  rd.readAsText(f); ev.target.value='';
+}
+
+/* ---------- boot ---------- */
+const dl=document.createElement('datalist');dl.id='prios';
+dl.innerHTML=PRIORITIES.map(p=>`<option value="${p}">`).join('');document.body.appendChild(dl);
+if(load()){render();}else{document.getElementById('firstrun').classList.remove('hidden');
+  board={sections:[]};}
+</script>
+</body>
+</html>

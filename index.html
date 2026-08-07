@@ -64,6 +64,7 @@
   .pill{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;padding:4px 8px;
         border-radius:99px;cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--faint)}
   .pill.priv{background:#fffbeb;color:#b45309}
+  .pill.excl{background:#fef2f2;color:#b91c1c;border-color:#fecaca}
   .spacer{flex:1}
   .addbtn{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--teal);
           background:#f0fdfa;border:1px dashed var(--teal);border-radius:6px;padding:7px 12px;cursor:pointer;font-family:inherit}
@@ -156,6 +157,7 @@ function startFresh(){
 function upd(sid,iid,field,val){const s=board.sections.find(x=>x.id===sid);const it=s.items.find(x=>x.id===iid);it[field]=val;persist();refreshCounts();}
 function toggleDone(sid,iid){const s=board.sections.find(x=>x.id===sid);const it=s.items.find(x=>x.id===iid);it.done=!it.done;persist();render();}
 function togglePriv(sid,iid){const s=board.sections.find(x=>x.id===sid);const it=s.items.find(x=>x.id===iid);it.private=!it.private;persist();render();}
+function toggleExclude(sid,iid){const s=board.sections.find(x=>x.id===sid);const it=s.items.find(x=>x.id===iid);it.exclude=!it.exclude;persist();render();}
 function delItem(sid,iid){const s=board.sections.find(x=>x.id===sid);s.items=s.items.filter(x=>x.id!==iid);persist();render();}
 function moveItem(sid,iid,dir){const s=board.sections.find(x=>x.id===sid);const i=s.items.findIndex(x=>x.id===iid);const j=i+dir;
   if(j<0||j>=s.items.length)return;[s.items[i],s.items[j]]=[s.items[j],s.items[i]];persist();render();}
@@ -163,7 +165,7 @@ function moveToSection(sid,iid,tid){if(sid===tid)return;const s=board.sections.f
   const it=s.items.find(x=>x.id===iid);s.items=s.items.filter(x=>x.id!==iid);
   board.sections.find(x=>x.id===tid).items.push(it);persist();render();}
 function addItem(sid){const s=board.sections.find(x=>x.id===sid);
-  s.items.push({id:uid(),item:'',category:'',priority:'',source:'',notes:'',done:false,private:s.private});persist();render();}
+  s.items.push({id:uid(),item:'',category:'',priority:'',source:'',notes:'',done:false,private:s.private,exclude:false});persist();render();}
 function addSection(){board.sections.push({id:uid(),title:'🆕 Nova seção',color:COLORS[board.sections.length%COLORS.length],
   private:false,collapsed:false,items:[]});persist();render();}
 function renameSection(sid,val){board.sections.find(x=>x.id===sid).title=val;persist();}
@@ -172,21 +174,25 @@ function toggleCollapse(sid){const s=board.sections.find(x=>x.id===sid);s.collap
 function delSection(sid){if(!confirm('Excluir esta seção e todos os seus itens?'))return;
   board.sections=board.sections.filter(x=>x.id!==sid);persist();render();}
 function togglePreview(){preview=!preview;document.getElementById('previewBtn').classList.toggle('on',preview);
-  document.getElementById('previewBtn').textContent=preview?'👁 Vendo o que é exportado':'👁 Pré-visualizar o export';render();}
+  document.getElementById('previewBtn').textContent=preview?'👁 Vendo a planilha exportada':'👁 Pré-visualizar a planilha';render();}
 
 /* ---------- render ---------- */
 const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
 function refreshCounts(){
-  const exp=board.sections.filter(s=>!s.private).reduce((n,s)=>n+s.items.filter(i=>!i.private).length,0);
-  const priv=board.sections.reduce((n,s)=>n+s.items.filter(i=>i.private||s.private).length,0);
-  document.getElementById('counts').textContent=`${exp} itens exportáveis · ${priv} privados`;
+  let inSheet=0,excl=0,priv=0;
+  board.sections.forEach(s=>{s.items.forEach(i=>{
+    if(s.private||i.private)priv++;
+    else if(i.exclude)excl++;
+    else inSheet++;
+  });});
+  document.getElementById('counts').textContent=`${inSheet} na planilha · ${excl} fora · ${priv} privados`;
 }
 function render(){
   refreshCounts();
   const host=document.getElementById('board');
   const sections=preview?board.sections.filter(s=>!s.private):board.sections;
   host.innerHTML=sections.map(s=>{
-    const items=preview?s.items.filter(i=>!i.private):s.items;
+    const items=preview?s.items.filter(i=>!i.private&&!i.exclude):s.items;
     return `<section class="block">
       <div class="shead">
         <span class="sdot" style="background:${s.color}"></span>
@@ -198,7 +204,7 @@ function render(){
         <button class="icb danger" title="Excluir seção" onclick="delSection('${s.id}')">🗑</button>
       </div>
       ${s.collapsed?'':items.map(it=>`
-        <div class="card ${it.done?'done':''}" style="border-left:3px solid ${it.private?'#f59e0b':s.color}">
+        <div class="card ${it.done?'done':''}" style="border-left:3px solid ${it.private?'#f59e0b':(it.exclude?'#f87171':s.color)}">
           <div class="top">
             <span class="chk ${it.done?'on':''}" onclick="toggleDone('${s.id}','${it.id}')">${it.done?'✓':''}</span>
             <div style="flex:1;min-width:0">
@@ -223,7 +229,8 @@ function render(){
               ${board.sections.map(t=>`<option value="${t.id}" ${t.id===s.id?'selected':''}>${esc(t.title.slice(0,34))}</option>`).join('')}
             </select>
             <span class="spacer"></span>
-            <span class="pill ${it.private?'priv':''}" onclick="togglePriv('${s.id}','${it.id}')">${it.private?'🙈 Privado':'👁 Exporta'}</span>
+            ${it.private?'':`<span class="pill ${it.exclude?'excl':''}" onclick="toggleExclude('${s.id}','${it.id}')" title="Manter esta linha fora da planilha exportada">${it.exclude?'🚫 Fora da planilha':'📄 Na planilha'}</span>`}
+            <span class="pill ${it.private?'priv':''}" onclick="togglePriv('${s.id}','${it.id}')" title="Totalmente privado — só você vê">${it.private?'🔒 Privado':'👁 Visível'}</span>
             <button class="icb danger" onclick="delItem('${s.id}','${it.id}')">🗑</button>
           </div>
         </div>`).join('')}
@@ -242,13 +249,13 @@ function exportXlsx(){
   const rows=[],merges=[];let r=0;
   const wide=t=>{rows.push([t,'','','','','']);merges.push({s:{r,c:0},e:{r,c:5}});r++;};
   const blank=()=>{rows.push(['','','','','','']);r++;};
-  wide('BRAZIL VOICE TUTOR — Lista de Prioridades / Priority List');
-  wide('Alessandra vê (somente leitura) · Hussain edita | Alessandra views (read-only) · Hussain edits');
+  wide('Lista de Prioridades / Priority List');
+  wide('Somente leitura | Read-only');
   wide('Última atualização / Last updated: '+ddmy());
   wide('Status: 🔴 A fazer / To do   🟡 Em andamento / In progress   🟢 Concluído / Done');
   blank();
   board.sections.filter(s=>!s.private).forEach(s=>{
-    const items=s.items.filter(i=>!i.private);
+    const items=s.items.filter(i=>!i.private&&!i.exclude);
     wide(s.title);
     rows.push(['#','Item','Categoria / Category','Prioridade / Priority','Origem / Source','Notas / Notes']);r++;
     if(items.length===0){rows.push(['','—','','','','']);r++;}
@@ -290,6 +297,3 @@ if(load()){render();}else{document.getElementById('firstrun').classList.remove('
 </script>
 </body>
 </html>
-
-
-
